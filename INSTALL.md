@@ -1,148 +1,158 @@
-# Installing the Winningtemp MCP server
+# Installing the Winningtemp MCP connector
 
-End-user install guide for macOS. Binaries are built automatically from this repo's `main` branch — every merge produces a fresh release.
+This guide gets you the Winningtemp connector in your **Claude desktop app** so you can ask Claude live questions about your company's engagement data.
 
 ## Prerequisites
 
-- macOS, either Apple Silicon (M-series) or Intel
-- [GitHub CLI](https://cli.github.com/) — `brew install gh`
-- [Claude Code](https://claude.ai/code) installed
-- Winningtemp ClientId + ClientSecret (ask your Winningtemp admin, or generate in **Settings → Apps / Developer API**)
+- macOS
+- [GitHub CLI](https://cli.github.com/) — install with `brew install gh`
+- The Claude desktop app installed
+- Winningtemp ClientId + ClientSecret — get these from **Winningtemp → Settings → Apps / Developer API → Generate**. Copy the secret immediately, it won't be shown again.
 
-## One-time GitHub authentication
+---
 
-The repo is private, so you need to be logged into the GitHub CLI as a user with read access. If you haven't already:
+## Step 1 — One-time GitHub authentication
+
+The repo is private, so you need to be logged into the GitHub CLI. If you haven't already:
 
 ```bash
 gh auth login
 ```
 
-Pick **GitHub.com** → **HTTPS** → **Login with a web browser**. Follow the prompts.
+Pick **GitHub.com** → **HTTPS** → **Login with a web browser** and follow the prompts.
 
-Verify with:
+---
 
-```bash
-gh auth status
-```
+## Step 2 — Download the binary
 
-## Install (or update) the binary
-
-### Which binary do I need?
-
-| Your Mac | Chip | Binary |
-|---|---|---|
-| Most Macs sold from late 2020 onwards | Apple Silicon (M1, M2, M3, M4…) | `winningtemp-mcp-darwin-arm64` |
-| Older Macs (pre-late-2020) | Intel | `winningtemp-mcp-darwin-amd64` |
-
-**Not sure which you have?** Run `uname -m` — `arm64` is Apple Silicon, `x86_64` is Intel.
-
-### Run the install command
+Open Terminal and run:
 
 ```bash
-# Auto-detect arch
+# Auto-detect your Mac architecture
 ARCH=$([ "$(uname -m)" = "arm64" ] && echo "arm64" || echo "amd64")
 
-# Make sure the install dir exists
+# Create the install directory
 mkdir -p ~/.local/bin
 
-# Download the latest binary
+# Download the latest release
 gh release download \
   --repo mpya-digital/winningtemp-mcp \
   --pattern "winningtemp-mcp-darwin-${ARCH}" \
   --output ~/.local/bin/winningtemp-mcp \
   --clobber
 
-# Make it executable and remove the macOS quarantine flag
+# Make it executable and clear macOS quarantine
 chmod +x ~/.local/bin/winningtemp-mcp
 xattr -d com.apple.quarantine ~/.local/bin/winningtemp-mcp 2>/dev/null || true
-
-# Re-sign ad-hoc to clear com.apple.provenance (added by recent macOS to
-# downloaded binaries — without this Gatekeeper silently kills the process)
 codesign --force --sign - ~/.local/bin/winningtemp-mcp
 
-# Confirm it works
+# Verify it works
 ~/.local/bin/winningtemp-mcp --version
 ```
 
 You should see something like `winningtemp-mcp v0.0.5 (commit a1b2c3d)`.
 
-> **Why `xattr` and `codesign`?** macOS marks downloaded binaries with a quarantine attribute. On recent versions it also adds a `com.apple.provenance` attribute that `xattr` can't remove — Gatekeeper silently kills the binary on launch (exit 137). Re-signing ad-hoc clears that state. Proper code-signing requires an Apple Developer ID (~€90/yr); this is the standard workaround for internal tools.
+---
 
-> **`~/.local/bin` not on your PATH?** Add this to `~/.zshrc`:
+## Step 3 — Add it to the Claude desktop config
+
+Open this file in any text editor:
+
+```
+~/Library/Application Support/Claude/claude_desktop_config.json
+```
+
+> **Tip:** You can open it directly from Terminal:
 > ```bash
-> export PATH="$HOME/.local/bin:$PATH"
+> open ~/Library/Application\ Support/Claude/claude_desktop_config.json
 > ```
-> Then reload: `source ~/.zshrc`
 
-## Connect to Claude Code
+Add the `winningtemp` block inside `"mcpServers"`. If the file already has other servers, add it alongside them:
 
-Run this once to register the server (replace the credential values with your own):
-
-```bash
-claude mcp add --transport stdio winningtemp \
-  --env WT_CLIENT_ID=your-client-id \
-  --env WT_CLIENT_SECRET=your-client-secret \
-  -- ~/.local/bin/winningtemp-mcp
+```json
+{
+  "mcpServers": {
+    "winningtemp": {
+      "command": "/Users/YOUR_USERNAME/.local/bin/winningtemp-mcp",
+      "env": {
+        "WT_CLIENT_ID": "your-client-id",
+        "WT_CLIENT_SECRET": "your-client-secret"
+      }
+    }
+  }
+}
 ```
 
-> **Don't share your credentials.** Use your own ClientId and ClientSecret. Never commit them to a repo.
+Replace:
+- `YOUR_USERNAME` with your macOS username (run `whoami` in Terminal if unsure)
+- `your-client-id` and `your-client-secret` with your Winningtemp credentials
 
-## Verify the connection
+> **Never share your credentials or commit this file to a repo.**
 
-In Claude Code, run:
+---
 
-```
-/mcp
-```
+## Step 4 — Restart Claude
 
-You should see `winningtemp` listed as a connected server with 15 tools available.
+Fully quit the Claude desktop app (**⌘Q**) and relaunch it.
 
-## Test it
+You should now see **winningtemp** listed under **Desktop** in the Connectors panel.
 
-Try asking Claude:
+---
 
-- *"List all teams from Winningtemp"*
-- *"Get the temperature index for the last 30 days"*
+## Step 5 — Test it
+
+Start a new chat and ask:
+
+- *"List all our active teams from Winningtemp"*
+- *"What's our temperature index for the last 30 days?"*
 - *"What's our current eNPS score?"*
+
+---
 
 ## Updating to a newer version
 
-Re-run the install command above — it overwrites the binary in place. Restart Claude Code to pick up the new version.
+Re-run the download command from Step 2 — it overwrites the binary in place. Restart Claude to pick up the new version.
 
-See all releases at: https://github.com/mpya-digital/winningtemp-mcp/releases
+See all releases: https://github.com/mpya-digital/winningtemp-mcp/releases
 
 Check your current version:
-
 ```bash
 ~/.local/bin/winningtemp-mcp --version
 ```
+
+---
 
 ## Troubleshooting
 
-**`gh: command not found`** — install with `brew install gh`.
+**`gh: command not found`**
+Install with `brew install gh`.
 
-**`gh: failed to download asset: 404`** — your GitHub user might not have access to the repo. Ask the team lead to add you to `mpya-digital`.
+**`gh: failed to download asset: 404`**
+Your GitHub account doesn't have access to the repo. Ask the team lead to add you to `mpya-digital`.
 
-**`zsh: bad CPU type in executable`** — wrong arch downloaded. Re-run the install command — the auto-detect line handles this.
+**Winningtemp doesn't appear in the Connectors panel**
+- Check the path in the config is correct — replace `YOUR_USERNAME` with your actual username
+- Make sure you fully quit (⌘Q) and relaunched Claude
+- Verify the binary works: `~/.local/bin/winningtemp-mcp --version`
 
-**Claude Code says "Could not connect to MCP server"** — check the path is correct and the binary has execute permissions:
-```bash
-ls -l ~/.local/bin/winningtemp-mcp
-~/.local/bin/winningtemp-mcp --version
-```
+**"Apple cannot verify the developer…"**
+Re-run the `xattr` and `codesign` lines from Step 2.
 
-**"Apple cannot verify the developer..."** — re-run the `xattr` and `codesign` steps.
-
-**Binary exits immediately with code 137** — Gatekeeper killed it due to `com.apple.provenance`. Re-sign:
+**Binary exits with code 137**
+Gatekeeper killed it. Re-sign:
 ```bash
 codesign --force --sign - ~/.local/bin/winningtemp-mcp
 ```
 
-**Authentication errors from Winningtemp** — double-check your `WT_CLIENT_ID` and `WT_CLIENT_SECRET`. If you lost the secret, generate a new pair in Winningtemp **Settings → Apps / Developer API**.
+**Authentication errors from Winningtemp**
+Double-check `WT_CLIENT_ID` and `WT_CLIENT_SECRET` in your config. If you lost the secret, generate a new pair in Winningtemp **Settings → Apps / Developer API**.
+
+---
 
 ## Uninstall
 
 ```bash
 rm ~/.local/bin/winningtemp-mcp
-claude mcp remove winningtemp
 ```
+
+Then remove the `winningtemp` block from `claude_desktop_config.json` and restart Claude.
