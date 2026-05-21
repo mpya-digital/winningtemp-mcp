@@ -45,7 +45,11 @@ async def get(path: str, params: dict = {}) -> dict:
             params={k: v for k, v in params.items() if v is not None},
         )
         r.raise_for_status()
-        return r.json()
+        body = r.json()
+        # Unwrap paginated responses: {"data": [...], "pagination": {...}}
+        if isinstance(body, dict) and "data" in body:
+            return body["data"]
+        return body
 
 
 # ── Temperature ──────────────────────────────────────────────────────────────
