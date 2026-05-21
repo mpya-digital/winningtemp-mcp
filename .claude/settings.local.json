@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 *)",
+      "Bash(pip *)",
+      "Bash(source .venv/bin/activate*)",
+      "WebFetch(domain:developer.winningtemp.com)",
+      "WebFetch(domain:api.winningtemp.com)",
+      "WebFetch(domain:winningtemp.com)"
+    ]
+  }
+}
