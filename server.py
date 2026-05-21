@@ -60,41 +60,6 @@ async def get(path: str, params: dict = {}) -> dict:
         return body
 
 
-# ── Temperature ──────────────────────────────────────────────────────────────
-
-@mcp.tool()
-async def get_temperature_index(start: str, end: str) -> str:
-    """Get the engagement temperature index for the organisation over a date range.
-    Args:
-        start: Start date in ISO format (YYYY-MM-DD)
-        end: End date in ISO format (YYYY-MM-DD)
-    """
-    data = await get("/temperature/v2/index", {"Start": start, "End": end})
-    return str(data)
-
-
-@mcp.tool()
-async def get_temperature_overview(start: str, end: str) -> str:
-    """Get an org-wide temperature overview including category breakdowns.
-    Args:
-        start: Start date in ISO format (YYYY-MM-DD)
-        end: End date in ISO format (YYYY-MM-DD)
-    """
-    data = await get("/temperature/v2/overview", {"Start": start, "End": end})
-    return str(data)
-
-
-@mcp.tool()
-async def get_temperature_age_distribution(start: str, end: str) -> str:
-    """Get temperature scores broken down by age group.
-    Args:
-        start: Start date in ISO format (YYYY-MM-DD)
-        end: End date in ISO format (YYYY-MM-DD)
-    """
-    data = await get("/temperature/v2/ageDistribution", {"Start": start, "End": end})
-    return str(data)
-
-
 # ── Benchmark ─────────────────────────────────────────────────────────────────
 
 @mcp.tool()

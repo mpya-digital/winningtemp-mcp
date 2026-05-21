@@ -62,15 +62,23 @@ Winningtemp API
   Scheduled agents → Slack / Notion
 ```
 
-## Planned tools
+## Available tools
 
-- `get_temperature_index(start, end)` — engagement scores over a period
-- `get_team_scores(team_id)` — scores for a specific team
 - `list_teams()` — org structure
+- `get_team(team_id)` — details for a specific team
+- `get_team_members(team_id)` — members of a team
+- `list_users()` — all users
+- `get_user(user_id)` — details for a specific user
+- `get_user_teams(user_id)` — teams a user belongs to
 - `get_benchmark(start, end)` — internal benchmark comparison
 - `get_global_benchmark(start, end)` — industry benchmark
 - `get_enps(start, end)` — eNPS trend
+- `get_category_benchmark(start, end)` — benchmark by survey category
+- `get_smart_index(start, end)` — Winningtemp Smart Index
 - `get_praises(from_date)` — recognition activity
+- `get_segment(segment_id)` — org segment details
+
+> **Note:** Temperature API endpoints (`/temperature/*`) return 404 for this account — this feature is not enabled on the current Winningtemp plan. Contact Winningtemp support to enable it.
 
 ## Important notes
 
