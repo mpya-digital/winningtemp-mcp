@@ -196,12 +196,22 @@ async def get_segment(segment_id: str) -> str:
 @mcp.tool()
 async def get_praises(from_date: str) -> str:
     """Get all user praises (recognition) from a specific date onwards.
+    NOTE: The Winningtemp API only allows fetching praises from within the last 7 days.
     Args:
-        from_date: Start date in ISO format (YYYY-MM-DD), e.g. 2025-01-01
+        from_date: Start date in ISO format (YYYY-MM-DD), must be within the last 7 days
     """
+    from datetime import datetime, timedelta
     # API requires full ISO datetime
     if len(from_date) == 10:
         from_date = f"{from_date}T00:00:00"
+    # Validate: must be within last 7 days
+    try:
+        requested = datetime.fromisoformat(from_date)
+        cutoff = datetime.utcnow() - timedelta(days=7)
+        if requested < cutoff:
+            return f"Error: The Winningtemp API only allows fetching praises from the last 7 days. Please use a from_date of {cutoff.strftime('%Y-%m-%d')} or later."
+    except ValueError:
+        pass
     data = await get("/praises/v1", {"fromDate": from_date})
     return str(data)
 
