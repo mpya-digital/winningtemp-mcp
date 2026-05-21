@@ -197,8 +197,11 @@ async def get_segment(segment_id: str) -> str:
 async def get_praises(from_date: str) -> str:
     """Get all user praises (recognition) from a specific date onwards.
     Args:
-        from_date: Start date in ISO format (YYYY-MM-DD)
+        from_date: Start date in ISO format (YYYY-MM-DD), e.g. 2025-01-01
     """
+    # API requires full ISO datetime
+    if len(from_date) == 10:
+        from_date = f"{from_date}T00:00:00"
     data = await get("/praises/v1", {"fromDate": from_date})
     return str(data)
 
