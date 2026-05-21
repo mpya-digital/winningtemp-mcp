@@ -1,85 +1,93 @@
-# Installation & Setup
+# Installing the Winningtemp MCP server
+
+End-user install guide for macOS. Binaries are built automatically from this repo's `main` branch — every merge produces a fresh release.
 
 ## Prerequisites
 
-- Python 3.10 or higher (3.12 recommended)
+- macOS, either Apple Silicon (M-series) or Intel
+- [GitHub CLI](https://cli.github.com/) — `brew install gh`
 - [Claude Code](https://claude.ai/code) installed
-- Admin access to your Winningtemp account
+- Winningtemp ClientId + ClientSecret (ask your Winningtemp admin, or generate in **Settings → Apps / Developer API**)
 
----
+## One-time GitHub authentication
 
-## 1. Clone the repo
-
-```bash
-git clone https://github.com/mpya-digital/winningtemp-mcp.git
-cd winningtemp-mcp
-```
-
----
-
-## 2. Create a Python virtual environment
+The repo is private, so you need to be logged into the GitHub CLI as a user with read access. If you haven't already:
 
 ```bash
-python3.12 -m venv .venv
-source .venv/bin/activate
+gh auth login
 ```
 
----
+Pick **GitHub.com** → **HTTPS** → **Login with a web browser**. Follow the prompts.
 
-## 3. Install dependencies
+Verify with:
 
 ```bash
-pip install --upgrade pip
-pip install "mcp[cli]" httpx python-dotenv
+gh auth status
 ```
 
----
+## Install (or update) the binary
 
-## 4. Add your Winningtemp credentials
+### Which binary do I need?
 
-Get your ClientId and ClientSecret from Winningtemp:
-1. Log in as an admin
-2. Go to **Settings → Apps / Developer API**
-3. Click **Generate** — copy the secret immediately, it won't be shown again
+| Your Mac | Chip | Binary |
+|---|---|---|
+| Most Macs sold from late 2020 onwards | Apple Silicon (M1, M2, M3, M4…) | `winningtemp-mcp-darwin-arm64` |
+| Older Macs (pre-late-2020) | Intel | `winningtemp-mcp-darwin-amd64` |
 
-Then create a `.env` file in the project root:
+**Not sure which you have?** Run `uname -m` — `arm64` is Apple Silicon, `x86_64` is Intel.
+
+### Run the install command
 
 ```bash
-cp .env.example .env
+# Auto-detect arch
+ARCH=$([ "$(uname -m)" = "arm64" ] && echo "arm64" || echo "amd64")
+
+# Make sure the install dir exists
+mkdir -p ~/.local/bin
+
+# Download the latest binary
+gh release download \
+  --repo mpya-digital/winningtemp-mcp \
+  --pattern "winningtemp-mcp-darwin-${ARCH}" \
+  --output ~/.local/bin/winningtemp-mcp \
+  --clobber
+
+# Make it executable and remove the macOS quarantine flag
+chmod +x ~/.local/bin/winningtemp-mcp
+xattr -d com.apple.quarantine ~/.local/bin/winningtemp-mcp 2>/dev/null || true
+
+# Re-sign ad-hoc to clear com.apple.provenance (added by recent macOS to
+# downloaded binaries — without this Gatekeeper silently kills the process)
+codesign --force --sign - ~/.local/bin/winningtemp-mcp
+
+# Confirm it works
+~/.local/bin/winningtemp-mcp --version
 ```
 
-Edit `.env` and fill in your credentials:
+You should see something like `winningtemp-mcp v0.0.5 (commit a1b2c3d)`.
 
-```
-WT_CLIENT_ID=your-client-id-here
-WT_CLIENT_SECRET=your-client-secret-here
-```
+> **Why `xattr` and `codesign`?** macOS marks downloaded binaries with a quarantine attribute. On recent versions it also adds a `com.apple.provenance` attribute that `xattr` can't remove — Gatekeeper silently kills the binary on launch (exit 137). Re-signing ad-hoc clears that state. Proper code-signing requires an Apple Developer ID (~€90/yr); this is the standard workaround for internal tools.
 
-> ⚠️ Never commit `.env` to git — it is already listed in `.gitignore`.
+> **`~/.local/bin` not on your PATH?** Add this to `~/.zshrc`:
+> ```bash
+> export PATH="$HOME/.local/bin:$PATH"
+> ```
+> Then reload: `source ~/.zshrc`
 
----
+## Connect to Claude Code
 
-## 5. Connect to Claude Code
-
-Run this once to register the MCP server:
+Run this once to register the server (replace the credential values with your own):
 
 ```bash
 claude mcp add --transport stdio winningtemp \
-  -- /path/to/winningtemp-mcp/.venv/bin/python \
-     /path/to/winningtemp-mcp/server.py
+  --env WT_CLIENT_ID=your-client-id \
+  --env WT_CLIENT_SECRET=your-client-secret \
+  -- ~/.local/bin/winningtemp-mcp
 ```
 
-Replace `/path/to/winningtemp-mcp` with the absolute path to where you cloned the repo. Example for macOS:
+> **Don't share your credentials.** Use your own ClientId and ClientSecret. Never commit them to a repo.
 
-```bash
-claude mcp add --transport stdio winningtemp \
-  -- /Users/yourname/Documents/Projects/winningtemp-mcp/.venv/bin/python \
-     /Users/yourname/Documents/Projects/winningtemp-mcp/server.py
-```
-
----
-
-## 6. Verify the connection
+## Verify the connection
 
 In Claude Code, run:
 
@@ -89,9 +97,7 @@ In Claude Code, run:
 
 You should see `winningtemp` listed as a connected server with 15 tools available.
 
----
-
-## 7. Test it
+## Test it
 
 Try asking Claude:
 
@@ -99,40 +105,44 @@ Try asking Claude:
 - *"Get the temperature index for the last 30 days"*
 - *"What's our current eNPS score?"*
 
----
+## Updating to a newer version
 
-## Available tools
+Re-run the install command above — it overwrites the binary in place. Restart Claude Code to pick up the new version.
 
-| Tool | What it does |
-|---|---|
-| `get_temperature_index` | Engagement scores over a date range |
-| `get_temperature_overview` | Org-wide summary with category breakdowns |
-| `get_temperature_age_distribution` | Scores by age group |
-| `get_benchmark` | Internal benchmark index |
-| `get_global_benchmark` | Industry benchmark comparison |
-| `get_enps` | Employee Net Promoter Score |
-| `get_category_benchmark` | Benchmark by survey category |
-| `get_smart_index` | Winningtemp Smart Index score |
-| `list_teams` | All teams in the org |
-| `get_team` | Details for a specific team |
-| `get_team_members` | Members of a specific team |
-| `list_users` | All users in the org |
-| `get_user` | Details for a specific user |
-| `get_user_teams` | Teams a user belongs to |
-| `get_praises` | Recognition/praise data from a date |
+See all releases at: https://github.com/mpya-digital/winningtemp-mcp/releases
 
----
+Check your current version:
+
+```bash
+~/.local/bin/winningtemp-mcp --version
+```
 
 ## Troubleshooting
 
-**Server not showing in `/mcp`**
-- Make sure you used the absolute path to both `python` and `server.py`
-- Confirm the `.venv` is activated and dependencies are installed
+**`gh: command not found`** — install with `brew install gh`.
 
-**Authentication errors**
-- Double-check `WT_CLIENT_ID` and `WT_CLIENT_SECRET` in your `.env`
-- If you lost the secret, generate a new pair in Winningtemp Settings
+**`gh: failed to download asset: 404`** — your GitHub user might not have access to the repo. Ask the team lead to add you to `mpya-digital`.
 
-**`mcp[cli]` install fails**
-- Confirm you are using Python 3.10+: `python3 --version`
-- Upgrade pip first: `pip install --upgrade pip`
+**`zsh: bad CPU type in executable`** — wrong arch downloaded. Re-run the install command — the auto-detect line handles this.
+
+**Claude Code says "Could not connect to MCP server"** — check the path is correct and the binary has execute permissions:
+```bash
+ls -l ~/.local/bin/winningtemp-mcp
+~/.local/bin/winningtemp-mcp --version
+```
+
+**"Apple cannot verify the developer..."** — re-run the `xattr` and `codesign` steps.
+
+**Binary exits immediately with code 137** — Gatekeeper killed it due to `com.apple.provenance`. Re-sign:
+```bash
+codesign --force --sign - ~/.local/bin/winningtemp-mcp
+```
+
+**Authentication errors from Winningtemp** — double-check your `WT_CLIENT_ID` and `WT_CLIENT_SECRET`. If you lost the secret, generate a new pair in Winningtemp **Settings → Apps / Developer API**.
+
+## Uninstall
+
+```bash
+rm ~/.local/bin/winningtemp-mcp
+claude mcp remove winningtemp
+```

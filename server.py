@@ -5,6 +5,14 @@ from dotenv import load_dotenv
 import httpx
 from mcp.server.fastmcp import FastMCP
 
+# Support --version flag for the compiled binary
+if "--version" in sys.argv:
+    version = os.environ.get("APP_VERSION", "dev")
+    commit = os.environ.get("APP_COMMIT", "unknown")
+    print(f"winningtemp-mcp {version} (commit {commit})")
+    sys.exit(0)
+
+# Load .env when running from source; env vars take precedence in binary mode
 load_dotenv()
 
 mcp = FastMCP("winningtemp")

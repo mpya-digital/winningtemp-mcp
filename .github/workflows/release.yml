@@ -1,0 +1,110 @@
+# Runs on every push to main. Builds standalone macOS binaries for both
+# architectures using PyInstaller and publishes them as a GitHub Release
+# with an auto-incrementing tag of the form v0.0.<run_number>.
+#
+# Users install via:
+#   gh release download --repo mpya-digital/winningtemp-mcp ...
+# See INSTALL.md for end-user instructions.
+name: Release
+
+on:
+  push:
+    branches: [main]
+    # Skip the release if only docs changed — binary is identical.
+    paths-ignore:
+      - "**.md"
+      - "LICENSE"
+      - ".gitignore"
+      - ".github/dependabot.yml"
+
+# Don't cancel a release in flight — that could leave a half-published
+# GitHub Release (tag created, binaries missing). Queue instead.
+concurrency:
+  group: release-main
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ${{ matrix.suffix }}
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-latest   # Apple Silicon (arm64)
+            suffix: darwin-arm64
+          - runner: macos-13       # Intel (amd64)
+            suffix: darwin-amd64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install "mcp[cli]" httpx python-dotenv pyinstaller
+
+      - name: Build binary
+        env:
+          APP_VERSION: "v0.0.${{ github.run_number }}"
+          APP_COMMIT: "${{ github.sha }}"
+        run: |
+          pyinstaller \
+            --onefile \
+            --name winningtemp-mcp-${{ matrix.suffix }} \
+            --distpath dist \
+            --add-data "$(python -c 'import mcp; import os; print(os.path.dirname(mcp.__file__))'):mcp" \
+            server.py
+
+      - name: Smoke test
+        run: |
+          APP_VERSION="v0.0.${{ github.run_number }}" \
+          APP_COMMIT="${{ github.sha }}" \
+          dist/winningtemp-mcp-${{ matrix.suffix }} --version
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: winningtemp-mcp-${{ matrix.suffix }}
+          path: dist/winningtemp-mcp-${{ matrix.suffix }}
+          retention-days: 1
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # needed to create the release + tag
+
+    steps:
+      - name: Download all binaries
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "v0.0.${{ github.run_number }}"
+          name: "v0.0.${{ github.run_number }}"
+          body: |
+            Automated release from commit ${{ github.sha }}.
+
+            See [INSTALL.md](https://github.com/mpya-digital/winningtemp-mcp/blob/main/INSTALL.md) for setup instructions.
+          files: |
+            dist/winningtemp-mcp-darwin-arm64
+            dist/winningtemp-mcp-darwin-amd64
